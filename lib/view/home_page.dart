@@ -1,15 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:just_audio/just_audio.dart';
-
-
-Image dot = Image.asset('assets/images/reddot.png');
+import 'package:piano11/class/note_segment.dart';
+import 'package:piano11/class/audio.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,47 +12,41 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  AudioServices audioServices = AudioServices();
   bool isRecording = false;
   bool isPlaying = false;
-  late final AudioRecorder audioRecord;
-  String? _audioPath;
-  List<Widget> note = [];
-  late final AudioPlayer audioPlayer;
-  late Timer timer;
-  int segmentation = 1;
-  int id = 0;
-  List<String> paths = [];
+  late List<String> paths = [];
+  Stack stack = Stack();
 
+  double offsetRow1x = 75;
+  double offsetRow1y = 142;
+  double offsetRow2x = 37;
+  double offsetRow2y = 261;
+  double offsetRow3x = 37;
+  double offsetRow3y = 380;
+
+  // one note 3 offset  x16
+  double moniterWidth = 360;
+  double moniterHeight = 784;
 
   @override
   void initState() {
+    // TODO: implement initState
     super.initState();
-    audioRecord = AudioRecorder();
-    audioPlayer = AudioPlayer();
+    audioServices = AudioServices();
+    audioServices.audioRecord = AudioRecorder();
+    audioServices.audioPlayer = AudioPlayer();
+    paths = audioServices.paths;
+    FlaskServices.setOnStateChange(() {
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    audioRecord.dispose();
-    audioPlayer.dispose();
+    audioServices.audioRecord.dispose();
+    audioServices.audioPlayer.dispose();
     super.dispose();
-  }
-  void _recordOneSecond()async{
-    if(isRecording){
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String path = p.join(appDir.path, 'record${id}.wav');
-      await audioRecord.start(RecordConfig(encoder: AudioEncoder.aacLc,sampleRate: 16000,), path: path);
-      await Future.delayed(Duration(seconds: 1));
-
-      String? filePath = await audioRecord.stop();
-      if (filePath != null) {
-        paths.add(filePath);
-
-      }
-      
-    }
-
-
   }
 
   @override
@@ -73,72 +60,65 @@ class _HomePageState extends State<HomePage> {
             width: MediaQuery.of(context).size.width,
             height: MediaQuery.of(context).size.height,
           ),
-          Column(
-            children: [
-              Row(
-                children: note,
-              ),
-              Row(
-                children: note,
-              ),
-              TextButton(
-                  onPressed: () async {
-                    if (audioPlayer.playing) {
-                      audioPlayer.stop();
-                      setState(() {
-                        isPlaying = false;
-                      });
-
-
-
-                    } else {
-                      await audioPlayer.setFilePath(_audioPath!);
-                      audioPlayer.play();
-                      setState(() {
-                        isPlaying = true;
-                      });
-                    }
-                  },
-                  child: Icon(Icons.play_arrow)),
-            ],
+          Padding(
+            padding: const EdgeInsets.all(15.0),
+            child: Column(
+              children: [
+                TextButton(
+                    onPressed: () async {
+                      if (audioServices.audioPlayer.playing) {
+                        audioServices.audioPlayer.stop();
+                        setState(() {
+                          isPlaying = false;
+                        });
+                      } else {
+                        await audioServices.audioPlayer
+                            .setFilePath(paths[0]);
+                        audioServices.audioPlayer.play();
+                        print(paths.length);
+                        print(MediaQuery.of(context).size.width);
+                        setState(() {
+                          isPlaying = true;
+                        });
+                      }
+                    },
+                    child: const Icon(Icons.play_arrow)),
+              ],
+            ),
+          ),
+          Stack(
+            children: FlaskServices.notePositions,
+          ),
+          const Padding(
+            padding:  EdgeInsets.only(top:600),
+            child: TextButton(
+                onPressed: FlaskServices.sendImageAndGetNotePosition,
+                child: Icon(
+                  Icons.airplanemode_active,
+                  size: 50,
+                  color: Colors.black,
+                )),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        child: Icon(
-          isRecording ? Icons.rectangle : Icons.mic,
-          size: 25,
-        ),
-        onPressed: () async {
-          if (isRecording) {
-            String? filePath = await audioRecord.stop();
-            if (filePath != null) {
+          child: Icon(
+            isRecording ? Icons.rectangle : Icons.mic,
+            size: 25,
+          ),
+          onPressed: () async {
+            if (isRecording) {
               setState(() {
                 isRecording = false;
-                _audioPath = filePath;
               });
-            }
-          } else {
-            if (await audioRecord.hasPermission()) {
-              final Directory appDir = await getApplicationDocumentsDirectory();
-              final String path = p.join(appDir.path, 'record.wav');
-              timer = Timer.periodic(Duration(seconds: segmentation), (timer) async {
-
-
-
-
-
-              });
-              audioRecord.start(const RecordConfig(), path: path,);
+              audioServices.stopRecording();
+            } else {
               setState(() {
                 isRecording = true;
-                _audioPath = null;
               });
+              audioServices.startRecording();
             }
-          }
-          setState(() {});
-        },
-      ),
+          }),
     );
   }
 }
