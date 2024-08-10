@@ -5,7 +5,7 @@ import 'package:record/record.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:async';
 import 'dart:io';
-import 'package:piano11/class/note_segment.dart';
+import 'package:piano11/services/note_segment.dart';
 
 
 
@@ -31,7 +31,7 @@ class AudioServices {
           path: path);
       id++;
 
-      timer = Timer.periodic(const Duration(seconds: 10), (Timer t) async {
+      timer = Timer.periodic(const Duration(seconds: 3), (Timer t) async {
         String? filePath = await audioRecord.stop();
         if (filePath != null) {
           paths.add(filePath);

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:piano11/model/piano_sheet.dart';
 
 class NoteSegment {
   List<dynamic> notes;
@@ -36,22 +37,22 @@ class FlaskServices {
   static List<NoteSegment> _noteSegments = [];
 
   static List<NoteSegment> get noteSegment => _noteSegments;
-  static List<int> noteLine1 = [];
-  static List<int> noteLine2 = [];
-  static List<int> noteLine3 = [];
+  static List<int> rightHandSideNote = [];
+  static List<int> leftHandSideNote = [];
   static List<int> weights = [];
   static int counter = 0;
   static List<Position> positions = [];
   static Function? onStateChange;
   static List<Widget> notePositions = [];
-
+  static double offsetY = littleStar.lineOffsetY[0].toDouble();
+  static int lineIndex = 0;
   static setOnStateChange(Function? callback) {
     onStateChange = callback;
   }
 
   static Future<void> sendAudioSegment(List<int> audioBytes) async {
     var response = await http.post(
-        Uri.parse('http://172.20.10.3:5000/audio_process'),
+        Uri.parse('http://192.168.50.55:5000/audio_process'),
         body: audioBytes);
 
     print(response.body);
@@ -64,32 +65,16 @@ class FlaskServices {
       }
       print(weights.length);
       print(weights);
-      print(noteLine1);
-      counter = noteLine1.length;
+      print(rightHandSideNote);
       for (int i = 0; i < weights.length; i++) {
-        pushAudioNoteIntoStack(positions, noteLine1[i], weights[i]);
-        counter--;
-        if (counter == 0) {
-          counter = noteLine2.length;
-          onStateChange!();
-          break;
+        if(weights.length == 0){
+          return;
         }
-      }
-      for(int i = 0; i < weights.length; i++) {
-        pushAudioNoteIntoStack(positions, noteLine2[i], weights[i]);
-        counter--;
-        if (counter == 0) {
-          counter = noteLine3.length;
-          onStateChange!();
-          break;
-        }
-      }
-      for(int i = 0; i < weights.length; i++) {
-        pushAudioNoteIntoStack(positions, noteLine3[i], weights[i]);
-        counter--;
-        if (counter == 0) {
-          onStateChange!();
-          break;
+        pushAudioNoteIntoStack(positions, rightHandSideNote[counter], weights[i]);
+        counter++;
+        if(counter == rightHandSideNote.length){
+          counter = 0;
+          positions = [];
         }
       }
     } else {
@@ -139,12 +124,14 @@ class FlaskServices {
   }
 
   static void pushAudioNoteIntoStack(List<Position> positions, int x, int y) {
-    double noteY = 142-y-3;
-    double noteX = x/2500*360-9;
-    positions.add(Position(x: noteX.toInt(), y: noteY.toInt()
-        , child: dot));
-    notePositions
-        .add(Positioned(child: dot, left: noteX, top:noteY));
+    offsetY = littleStar.lineOffsetY[lineIndex].toDouble();
+    double noteX = x / 2500 * 360 - 9;
+    double noteY = offsetY - y * 1.45;
+    if (noteX < 77) {
+      lineIndex = lineIndex + 2;
+    }
+    positions.add(Position(x: noteX.toInt(), y: noteY.toInt(), child: dot));
+    notePositions.add(Positioned(left: noteX, top: noteY, child: dot));
   }
 
   static Future<void> sendImageAndGetNotePosition() async {
@@ -155,7 +142,7 @@ class FlaskServices {
     }
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://172.20.10.3:5000/image_process'),
+      Uri.parse('http://192.168.50.55:5000/image_process'),
     );
 
     request.files.add(await http.MultipartFile.fromPath('image', image.path));
@@ -167,23 +154,33 @@ class FlaskServices {
     } else {
       print('Failed to send image');
     }
-    noteLine1 = List<int>.from(jsonData['note1']);
-    noteLine2 = List<int>.from(jsonData['note2']);
-    noteLine3 = List<int>.from(jsonData['note3']);
-    for(int note in noteLine1) {
-      note = (note.toDouble()/2500*360).toInt();
+
+    List<int> noteLine1 = List<int>.from(jsonData['note1']);
+    List<int> noteLine2 = List<int>.from(jsonData['note2']);
+    List<int> noteLine3 = List<int>.from(jsonData['note3']);
+    List<int> noteLine4 = List<int>.from(jsonData['note4']);
+    List<int> noteLine5 = List<int>.from(jsonData['note5']);
+    List<int> noteLine6 = List<int>.from(jsonData['note6']);
+
+    for (int note in noteLine1) {
+      note = (note.toDouble() / 2500 * 360).toInt();
     }
-    for(int note in noteLine2) {
-      note = (note.toDouble()/2500*360).toInt();
+    for (int note in noteLine2) {
+      note = (note.toDouble() / 2500 * 360).toInt();
     }
-    for(int note in noteLine3) {
-      note = (note.toDouble()/2500*360).toInt();
+    for (int note in noteLine3) {
+      note = (note.toDouble() / 2500 * 360).toInt();
     }
+    for (int note in noteLine4) {
+      note = (note.toDouble() / 2500 * 360).toInt();
+    }
+    for (int note in noteLine5) {
+      note = (note.toDouble() / 2500 * 360).toInt();
+    }
+    for (int note in noteLine6) {
+      note = (note.toDouble() / 2500 * 360).toInt();
+    }
+    rightHandSideNote = noteLine1 + noteLine3 + noteLine5;
+    leftHandSideNote = noteLine2 + noteLine4 + noteLine6;
   }
 }
-// setState(() {
-//   offsetRow1y = offsetRow1y - FlaskServices.weights[0].toDouble() - 3;
-//   offsetRow1x = offsetRow1x + 15.toDouble();
-//   print(MediaQuery.of(context).size.width);
-//   print(MediaQuery.of(context).size.height);
-// });
