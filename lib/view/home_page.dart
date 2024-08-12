@@ -13,11 +13,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  AudioServices audioServices = AudioServices();
+  FlaskServices flaskServices = FlaskServices();
+  late AudioServices audioServices;
+
   bool isRecording = false;
   bool isPlaying = false;
   late List<String> paths = [];
-  Stack stack = Stack();
+  Stack stack = const Stack();
   double tempo = 120;
 
   // double offsetRow1x = 75;
@@ -33,15 +35,17 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-    audioServices = AudioServices();
+    audioServices = AudioServices(flaskServices: flaskServices);
+
+    flaskServices.setOnStateChange(() {
+      setState(() {});
+    });
+    flaskServices.setStateLab();
+    flaskServices.setStateLab();
     audioServices.audioRecord = AudioRecorder();
     audioServices.audioPlayer = AudioPlayer();
     paths = audioServices.paths;
-    FlaskServices.setOnStateChange(() {
-      setState(() {});
-    });
   }
 
   @override
@@ -49,6 +53,15 @@ class _HomePageState extends State<HomePage> {
     audioServices.audioRecord.dispose();
     audioServices.audioPlayer.dispose();
     super.dispose();
+  }
+
+  bool needToChangeTempoIndicatorColor() {
+    if (FlaskServices.tempo < flaskServices.firstTempo + 3 &&
+        FlaskServices.tempo > flaskServices.firstTempo - 3) {
+      return false;
+    } else {
+      return true;
+    }
   }
 
   @override
@@ -76,8 +89,8 @@ class _HomePageState extends State<HomePage> {
                       } else {
                         await audioServices.audioPlayer.setFilePath(paths[0]);
                         audioServices.audioPlayer.play();
-                        print(paths.length);
-                        print(MediaQuery.of(context).size.width);
+                        // print(paths.length);
+                        // print(MediaQuery.of(context).size.width);
                         setState(() {
                           isPlaying = true;
                         });
@@ -90,15 +103,6 @@ class _HomePageState extends State<HomePage> {
           Stack(
             children: FlaskServices.notePositions,
           ),
-          // Stack(
-          //   children:[
-          //     Positioned(child: dot, left: 100, top: 142-9*1.4),
-          //     Positioned(child: dot, left: 37, top: 420),
-          //
-          //
-          //
-          //   ]
-          // ),
           Stack(
             children: [
               Padding(
@@ -114,36 +118,36 @@ class _HomePageState extends State<HomePage> {
                           color: const Color(0xFFE2DAD6),
                           borderRadius: BorderRadius.circular(20),
                         ),
-
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: TempoIndicator(
-                            tempo: 120,
-                          ),
+                              firstTempo: flaskServices.firstTempo,
+                              tempo: FlaskServices.tempo.toDouble()),
                         ),
                       ),
                     ),
-                    SizedBox(
+                    const SizedBox(
                       height: 5,
                     ),
                     Text(
-                      'TEMPO : $tempo BPM',
+                      'TEMPO :  ${FlaskServices.tempo.toStringAsFixed(1)}  BPM',
                       style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 18,
+                        color: needToChangeTempoIndicatorColor()
+                            ? const Color(0xFFF5004F)
+                            : const Color(0xFF6C946F),
+                        fontSize: 15,
                       ),
                     ),
                   ],
                 ),
               ),
-
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 600),
+          Padding(
+            padding: const EdgeInsets.only(top: 600),
             child: TextButton(
-              onPressed: FlaskServices.sendImageAndGetNotePosition,
-              child: Icon(
+              onPressed: flaskServices.sendImageAndGetNotePosition,
+              child: const Icon(
                 Icons.send,
                 size: 50,
                 color: Colors.black,

@@ -19,14 +19,6 @@ class NoteSegment {
   });
 }
 
-class Position {
-  int x;
-  int y;
-  Widget child;
-
-  Position({required this.x, required this.y, required this.child});
-}
-
 Image dot = Image.asset(
   'assets/images/reddot.png',
   width: 20,
@@ -34,47 +26,65 @@ Image dot = Image.asset(
 );
 
 class FlaskServices {
-  static List<NoteSegment> _noteSegments = [];
-
-  static List<NoteSegment> get noteSegment => _noteSegments;
+  static List<NoteSegment> noteSegments = [];
+  static double tempo = 0;
+  double firstTempo = 0;
+  bool isFirstTempoSet = false;
   static List<int> rightHandSideNote = [];
   static List<int> leftHandSideNote = [];
   static List<int> weights = [];
   static int counter = 0;
-  static List<Position> positions = [];
-  static Function? onStateChange;
+
   static List<Widget> notePositions = [];
   static double offsetY = littleStar.lineOffsetY[0].toDouble();
   static int lineIndex = 0;
-  static setOnStateChange(Function? callback) {
-    onStateChange = callback;
+  Function()? _onStateChange;
+
+  void setOnStateChange(Function()? callback) {
+    _onStateChange = callback;
   }
 
-  static Future<void> sendAudioSegment(List<int> audioBytes) async {
+  void setStateLab() {
+    if (_onStateChange != null) {
+      _onStateChange!();
+    }
+  }
+
+  Future<void> sendAudioSegment(List<int> audioBytes) async {
+    print('Sending audio segment');
     var response = await http.post(
         Uri.parse('http://192.168.50.55:5000/audio_process'),
         body: audioBytes);
-
-    print(response.body);
+    print('receive response');
+    setStateLab();
+    // print(response.body);
     if (response.statusCode == 200) {
+      setStateLab();
       // 成功傳送
       print('Audio segment sent successfully');
       audioRespondDecode(response);
-      if (weights.length == 0) {
+      if (weights.isEmpty) {
         return;
       }
-      print(weights.length);
+      // print(weights.length);
       print(weights);
-      print(rightHandSideNote);
+      // print(rightHandSideNote);
       for (int i = 0; i < weights.length; i++) {
-        if(weights.length == 0){
-          return;
+        if (weights.isEmpty) {
+          break;
         }
-        pushAudioNoteIntoStack(positions, rightHandSideNote[counter], weights[i]);
+        pushAudioNoteIntoStack(
+            notePositions, rightHandSideNote[counter], weights[i]);
+        if (_onStateChange != null) {
+          _onStateChange!();
+        }
         counter++;
-        if(counter == rightHandSideNote.length){
+        if (counter == rightHandSideNote.length) {
           counter = 0;
-          positions = [];
+          notePositions.clear();
+          if (_onStateChange != null) {
+            _onStateChange!();
+          }
         }
       }
     } else {
@@ -82,20 +92,27 @@ class FlaskServices {
     }
   }
 
-  static Future<void> audioRespondDecode(var response) async {
+  Future<void> audioRespondDecode(var response) async {
     final jsonResponse = json.decode(response.body);
     List<String> notes = List<String>.from(jsonResponse['notes']);
     List<int> beats = List<int>.from(jsonResponse['beats']);
-    double tempo = jsonResponse['tempo'][0];
+    tempo = jsonResponse['tempo'][0];
+    if(isFirstTempoSet == false) {
+      firstTempo = tempo;
+      isFirstTempoSet = true;
+    }
+    if (_onStateChange != null) {
+      _onStateChange!();
+    }
     DateTime tempDate =
-        new DateFormat("yyyy-MM-dd hh:mm:ss").parse(jsonResponse['timeStamp']);
-    _noteSegments.add(
+        DateFormat("yyyy-MM-dd hh:mm:ss").parse(jsonResponse['timeStamp']);
+    noteSegments.add(
         NoteSegment(notes: notes, beats: beats, tempo: tempo, time: tempDate));
 
     weights = getWeight(notes);
   }
 
-  static List<int> getWeight(List<dynamic> notes) {
+  List<int> getWeight(List<dynamic> notes) {
     List<int> weights = [];
     int simpleNote = 0;
     int weight = 0;
@@ -123,20 +140,22 @@ class FlaskServices {
     return weights;
   }
 
-  static void pushAudioNoteIntoStack(List<Position> positions, int x, int y) {
+  void pushAudioNoteIntoStack(List<Widget> positions, int x, int y) {
     offsetY = littleStar.lineOffsetY[lineIndex].toDouble();
     double noteX = x / 2500 * 360 - 9;
     double noteY = offsetY - y * 1.45;
     if (noteX < 77) {
       lineIndex = lineIndex + 2;
     }
-    positions.add(Position(x: noteX.toInt(), y: noteY.toInt(), child: dot));
     notePositions.add(Positioned(left: noteX, top: noteY, child: dot));
+    if (_onStateChange != null) {
+      _onStateChange!();
+    }
   }
 
-  static Future<void> sendImageAndGetNotePosition() async {
-    final ImagePicker _picker = ImagePicker();
-    XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> sendImageAndGetNotePosition() async {
+    final ImagePicker picker = ImagePicker();
+    XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image == null) {
       return;
     }
@@ -163,22 +182,22 @@ class FlaskServices {
     List<int> noteLine6 = List<int>.from(jsonData['note6']);
 
     for (int note in noteLine1) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     for (int note in noteLine2) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     for (int note in noteLine3) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     for (int note in noteLine4) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     for (int note in noteLine5) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     for (int note in noteLine6) {
-      note = (note.toDouble() / 2500 * 360).toInt();
+      note = (note.toDouble() / littleStar.width * 360).toInt();
     }
     rightHandSideNote = noteLine1 + noteLine3 + noteLine5;
     leftHandSideNote = noteLine2 + noteLine4 + noteLine6;

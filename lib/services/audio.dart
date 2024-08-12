@@ -7,11 +7,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:piano11/services/note_segment.dart';
 
-
-
-
-
 class AudioServices {
+  AudioServices({required this.flaskServices});
+  FlaskServices flaskServices;
   AudioRecorder audioRecord = AudioRecorder();
   AudioPlayer audioPlayer = AudioPlayer();
   static Timer timer = Timer(const Duration(seconds: 1), () {});
@@ -39,7 +37,8 @@ class AudioServices {
         if (filePath != null) {
           File file = File(filePath);
           Uint8List audioBytes = await file.readAsBytes();
-          await FlaskServices.sendAudioSegment(audioBytes as List<int>);
+          await flaskServices.sendAudioSegment(audioBytes as List<int>);
+
           final Directory appDir = await getApplicationDocumentsDirectory();
           final String path = p.join(appDir.path, 'record$id.wav');
           await audioRecord.start(
@@ -56,7 +55,6 @@ class AudioServices {
 
   Future<void> stopRecording() async {
     timer.cancel();
+    flaskServices.isFirstTempoSet = false;
   }
-
-
 }
